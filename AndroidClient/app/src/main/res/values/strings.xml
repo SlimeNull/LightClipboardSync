@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">剪贴板同步</string>
+    <string name="module_description">通过系统框架自动同步复制的文本和图片</string>
+    <string name="sync_clipboard">同步剪贴板</string>
+    <string name="notification_channel">剪贴板同步</string>
+    <string name="notification_text">点此同步当前剪贴板</string>
+</resources>

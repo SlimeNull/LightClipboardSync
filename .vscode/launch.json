@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:LightClipboardSync}/MacClient",
+            "name": "Debug LightClipboardSyncMac (MacClient)",
+            "target": "LightClipboardSyncMac",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug LightClipboardSyncMac (MacClient)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:LightClipboardSync}/MacClient",
+            "name": "Release LightClipboardSyncMac (MacClient)",
+            "target": "LightClipboardSyncMac",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release LightClipboardSyncMac (MacClient)"
+        }
+    ]
+}

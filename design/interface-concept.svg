@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1660 1080">
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#426FE0"/>
+      <stop offset="1" stop-color="#277CA8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="22" flood-color="#2E4873" flood-opacity=".12"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+      .ink { fill: #25324D; }
+      .muted { fill: #74829B; }
+      .label { font-size: 20px; font-weight: 650; }
+      .body { font-size: 23px; }
+      .small { font-size: 17px; }
+    </style>
+  </defs>
+  <rect width="1660" height="1080" fill="#EDF1F8"/>
+  <text x="72" y="58" fill="#70819E" font-size="22" font-weight="650">LIGHT CLIPBOARD SYNC  ·  INTERFACE CONCEPT</text>
+
+  <!-- Android surface -->
+  <rect x="70" y="86" width="455" height="936" rx="46" fill="#192845" filter="url(#shadow)"/>
+  <rect x="79" y="95" width="437" height="918" rx="39" fill="#F7F8FC"/>
+  <rect x="245" y="108" width="105" height="18" rx="9" fill="#24334F"/>
+  <text x="113" y="170" class="ink" font-size="34" font-weight="760">剪贴板同步</text>
+  <circle cx="463" cy="153" r="24" fill="#DDE8FC"/>
+  <path d="M456 144h13v16h-13z" fill="none" stroke="#3D70D9" stroke-width="2.5"/>
+  <circle cx="115" cy="202" r="6" fill="#29AC87"/>
+  <text x="130" y="208" class="muted small">已连接 · 2 台设备</text>
+  <rect x="107" y="238" width="381" height="85" rx="12" fill="url(#blue)"/>
+  <path d="M145 280h28m-14-13v26" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <text x="222" y="291" fill="white" font-size="27" font-weight="700">同步剪切板</text>
+  <text x="107" y="364" class="ink label">连接设置</text>
+  <rect x="107" y="383" width="381" height="107" rx="11" fill="white"/>
+  <text x="126" y="414" class="muted small">服务器地址</text>
+  <text x="126" y="456" class="ink body">https://sync.example.com</text>
+  <rect x="107" y="499" width="381" height="107" rx="11" fill="white"/>
+  <text x="126" y="530" class="muted small">同步 UUID</text>
+  <text x="126" y="571" class="ink" font-size="21">3037c872-92d9-4a78...</text>
+  <path d="M450 545h20v23h-20zM444 551h19v23h-19z" fill="none" stroke="#3D70D9" stroke-width="2.5"/>
+  <text x="107" y="650" class="ink label">快捷入口</text>
+  <rect x="107" y="669" width="381" height="72" rx="11" fill="white"/>
+  <circle cx="145" cy="705" r="21" fill="#E7EEFF"/>
+  <path d="M136 705h18m-9-9v18" stroke="#3D70D9" stroke-width="3" stroke-linecap="round"/>
+  <text x="178" y="712" class="ink" font-size="21" font-weight="600">添加到控制中心</text>
+  <rect x="107" y="749" width="381" height="72" rx="11" fill="white"/>
+  <text x="127" y="793" class="ink" font-size="21" font-weight="600">常驻通知</text>
+  <rect x="417" y="769" width="52" height="31" rx="16" fill="#3D70D9"/>
+  <circle cx="450" cy="784" r="12" fill="white"/>
+  <text x="107" y="865" class="ink label">活动日志</text>
+  <rect x="107" y="883" width="381" height="101" rx="11" fill="white"/>
+  <text x="125" y="918" class="muted small">09-28 04:40   接收   图片</text>
+  <text x="125" y="950" class="muted small">09-28 04:33   发送   文本</text>
+
+  <!-- macOS settings surface -->
+  <rect x="608" y="150" width="983" height="745" rx="18" fill="white" filter="url(#shadow)"/>
+  <rect x="608" y="150" width="983" height="56" rx="18" fill="#F7F8FC"/>
+  <path d="M608 190h983v16H608z" fill="#F7F8FC"/>
+  <circle cx="638" cy="178" r="7" fill="#F37C75"/><circle cx="662" cy="178" r="7" fill="#F5BE58"/><circle cx="686" cy="178" r="7" fill="#65C879"/>
+  <text x="1060" y="185" class="muted small">剪贴板同步 · 设置</text>
+  <rect x="640" y="238" width="156" height="156" rx="36" fill="url(#blue)"/>
+  <rect x="682" y="269" width="74" height="98" rx="12" fill="white"/>
+  <rect x="702" y="260" width="34" height="18" rx="8" fill="#A9E4DD"/>
+  <path d="M697 319h43M697 340h28" stroke="#A5BBD7" stroke-width="6" stroke-linecap="round"/>
+  <path d="M699 353c17 16 41 15 57-2" fill="none" stroke="#22A99D" stroke-width="7" stroke-linecap="round"/>
+  <text x="838" y="293" class="ink" font-size="38" font-weight="750">剪贴板同步</text>
+  <circle cx="846" cy="345" r="7" fill="#29AC87"/>
+  <text x="864" y="352" class="muted" font-size="21">已连接到服务器</text>
+  <text x="643" y="454" class="ink label">服务器地址</text>
+  <rect x="643" y="474" width="890" height="67" rx="8" fill="#F9FAFD" stroke="#DCE4F0" stroke-width="2"/>
+  <text x="663" y="516" class="ink body">https://sync.example.com</text>
+  <text x="643" y="596" class="ink label">同步 UUID</text>
+  <rect x="643" y="616" width="730" height="67" rx="8" fill="#F9FAFD" stroke="#DCE4F0" stroke-width="2"/>
+  <text x="663" y="658" class="ink body">3037c872-92d9-4a78-bd1b-817aaa399a08</text>
+  <rect x="1387" y="616" width="146" height="67" rx="8" fill="#ECF2FF"/>
+  <text x="1419" y="657" fill="#356EDA" font-size="21" font-weight="650">复制</text>
+  <rect x="1338" y="752" width="195" height="74" rx="9" fill="#426FE0"/>
+  <text x="1384" y="798" fill="white" font-size="24" font-weight="700">保存设置</text>
+
+  <text x="608" y="973" fill="#71809A" font-size="20">Clear action · restrained color · native platform controls · no decorative panels</text>
+</svg>

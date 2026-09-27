@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.build/
+**/.idea/
+**/.swiftpm/
+MacClient/dist/
+AndroidClient/.gradle/
+AndroidClient/build/
+AndroidClient/app/build/
+AndroidClient/local.properties
+.DS_Store
