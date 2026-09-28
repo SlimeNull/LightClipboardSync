@@ -6,9 +6,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import androidx.core.content.FileProvider
+import android.os.PersistableBundle
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.io.IOException
 
 sealed class ClipboardContent(val type: String, val mimeType: String, val bytes: ByteArray) {
@@ -65,24 +64,33 @@ object ClipboardContentReader {
 }
 
 object RemoteClipboardWriter {
-    fun writeText(context: Context, value: String) {
-        context.getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText("LightClipboardSync", value))
+    fun prepare(context: Context, record: ClipboardApi.Download): ClipData {
+        val clip = when (record.type) {
+            "text" -> ClipData.newPlainText("LightClipboardSync", record.bytes.toString(Charsets.UTF_8))
+            "image" -> imageClip(context, record)
+            else -> throw IOException("Unsupported clipboard type")
+        }
+        clip.description.extras = PersistableBundle().apply { putBoolean(ModuleProtocol.REMOTE_CLIP, true) }
+        return clip
     }
 
-    fun writeImage(context: Context, bytes: ByteArray, mimeType: String, id: Long) {
-        val extension = when (mimeType.substringBefore(';')) {
+    fun write(context: Context, record: ClipboardApi.Download, isCurrent: () -> Boolean): Boolean {
+        val clip = prepare(context, record)
+        if (!isCurrent()) return false
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
+        return true
+    }
+
+    private fun imageClip(context: Context, record: ClipboardApi.Download): ClipData {
+        val extension = when (record.mimeType.substringBefore(';')) {
             "image/jpeg" -> "jpg"
             "image/webp" -> "webp"
             else -> "png"
         }
-        val directory = File(context.cacheDir, "clipboard").apply { mkdirs() }
-        val file = File(directory, "remote_$id.$extension")
-        file.writeBytes(bytes)
-        val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-        context.getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newUri(context.contentResolver, "LightClipboardSync", uri))
-        directory.listFiles()?.filter { it != file && it.lastModified() < System.currentTimeMillis() - 86_400_000 }
-            ?.forEach { it.delete() }
+        val uri = Uri.Builder().scheme("content").authority(ModuleProtocol.IMAGE_AUTHORITY)
+            .appendPath("${record.id}.$extension").build()
+        context.contentResolver.openOutputStream(uri, "w")?.use { it.write(record.bytes) }
+            ?: throw IOException("Unable to store clipboard image")
+        return ClipData.newUri(context.contentResolver, "LightClipboardSync", uri)
     }
 }

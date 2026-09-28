@@ -30,9 +30,9 @@ ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-在应用内填入可从手机访问的服务器地址，以及与 macOS 相同的同步 UUID。主界面“同步剪切板”会上传当前文本或图片，并用 Toast 报告结果。桌面长按应用图标的快捷方式、控制中心磁贴和常驻通知也提供同一操作；这些外部入口会短暂获取应用焦点以读取剪贴板，不展示设置页面。主界面可见时保持 SSE 连接；开启“常驻通知”后，前台服务在后台继续保持连接并把远端内容写入剪贴板。保存设置会断开旧连接并用新配置重连，主界面显示实际连接状态。活动日志只记录时间、方向和类型，最多保留 100 行。部分手机的省电策略可能暂停后台网络；服务端不会重发断线期间的事件。
+在应用内填入可从手机访问的服务器地址，以及与 macOS 相同的同步 UUID。主界面“同步剪切板”会上传当前文本或图片，并用 Toast 报告结果。Android 客户端启动后会运行前台同步服务，基础 SSE 和远端剪贴板接收不依赖 LSPosed 模块；启用 API 102 模块后，系统框架还会直接处理其他应用的复制并上传。息屏时停止重连，开屏后恢复 SSE 并用 `pull?id=-1` 检查息屏期间的最新其他设备记录；服务器响应头携带记录 ID、Unix 毫秒时间戳和类型。保存设置会同步到模块远程配置并重连。活动日志只记录时间、方向和类型，最多保留 100 行。部分手机的省电策略可能暂停后台网络；服务端不会重发断线期间的事件。
 
-APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 的 LSPosed/Vector 框架。安装后在模块管理器中启用本模块，推荐作用域为“系统框架”（现代模块的 `system`，即 `system_server`），然后重启设备使系统进程加载 hook；每次更新 APK 后也需重启才能加载新的模块代码。`android` 在现代模块中指普通“安卓系统”包，不能代替系统框架作用域。模块观察 `ClipboardService.setPrimaryClipInternalLocked`（旧 Android 使用 `setPrimaryClipInternal`）提交的文本和图片，并通过签名权限保护的广播交给应用上传。图片 URI 使用系统剪贴板服务原有的授权方法转交。模块日志会记录加载、hook 安装、广播转发和异常；应用活动日志会记录自动发送及失败，仅包含时间和类型。实际运行仍依赖设备的系统实现，尚待新版本的设备测试。没有模块时，上述手动入口仍可使用。
+APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 的 LSPosed/Vector 框架。安装后在模块管理器中启用本模块，推荐作用域为“系统框架”（现代模块的 `system`，即 `system_server`），然后重启设备使系统进程加载 hook；每次更新 APK 后也需重启才能加载新的模块代码。模块观察 `ClipboardService.setPrimaryClipInternalLocked`（旧 Android 使用 `setPrimaryClipInternal`）提交的文本和图片，并在系统框架内直接 POST。系统框架也负责 SSE、开屏补取和将远端内容写回系统剪贴板，主应用不需要保活。图片 URI 使用系统剪贴板服务原有的授权方法读取。模块日志会记录加载、hook 安装、上传、接收和异常；应用活动日志会记录方向和类型。实际运行仍依赖设备的系统实现，尚待新版本的设备测试。没有模块时，上述手动入口仍可使用。
 
 界面设计稿和图标源文件位于 `design/`，Android 主界面使用 Compose Material 3 `Scaffold`，macOS 设置窗口使用 SwiftUI 布局容器。
 
@@ -44,9 +44,10 @@ APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 
 | --- | --- |
 | `POST /push?type=text` | 请求体为 UTF-8 文本，`Content-Type: text/plain; charset=utf-8` |
 | `POST /push?type=image` | 请求体为图片，`Content-Type` 为 `image/png`、`image/jpeg` 或 `image/webp` |
-| `GET /events` | SSE；每条消息的 `data` 是 `{"id":1,"type":"text","content":"..."}` |
+| `GET /events` | SSE；每条消息的 `data` 是 `{"id":1,"type":"text","content":"...","timestamp":1730000000000}` |
 | `GET /pull?id=1` | 获取指定事件的原始请求体和 Content-Type |
+| `GET /pull?id=-1` | 配合 `X-Client-ID` 获取最近一条其他设备记录；响应头包含 `X-Clipboard-ID`、`X-Clipboard-Timestamp`（Unix 毫秒）和 `X-Clipboard-Type` |
 
-每次 `/push` 返回 201 和同格式 JSON 事件。事件 ID 在当前服务器进程内全局递增。文本的 UTF-8 请求体严格小于 64 KiB 时，SSE 的 `content` 内联文本；大文本和图片的 `content` 为 `null`，客户端用 `/pull` 获取。单条上传上限为 25 MiB，超过返回 413。每个 UUID 只保留最近 3 条内容，更早的 `/pull` 返回 404。
+每次 `/push` 返回 201 和同格式 JSON 事件，其中包含 `timestamp`（Unix 毫秒）。事件 ID 在当前服务器进程内全局递增。文本的 UTF-8 请求体严格小于 64 KiB 时，SSE 的 `content` 内联文本；大文本和图片的 `content` 为 `null`，客户端用 `/pull` 获取。单条上传上限为 25 MiB，超过返回 413。每个 UUID 只保留最近 3 条内容，更早的 `/pull` 返回 404。
 
 SSE 仅发送订阅期间产生的新事件；断线重连不会重发。服务器数据保存在内存中，重启后历史和事件计数清空。服务器不验证 UUID 的所有权，持有同一 UUID 即可读写同一份剪贴板；在不受信任的网络中应使用 HTTPS，明文 HTTP 会暴露 Basic 凭证和内容。

@@ -14,10 +14,6 @@ class BackgroundSyncService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!SyncConfig.notificationEnabled(this)) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
         createChannel()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1001, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

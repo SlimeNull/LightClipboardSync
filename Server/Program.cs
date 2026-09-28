@@ -77,11 +77,18 @@ app.MapGet("/pull", (HttpContext context, ClipboardStore store) =>
 {
     if (!BasicAuthentication.TryGetUser(context.Request.Headers.Authorization.ToString(), out var user))
         return Results.Unauthorized();
-    if (!long.TryParse(context.Request.Query["id"], out var id) || id <= 0)
-        return Results.BadRequest("A positive numeric id is required.");
+    if (!long.TryParse(context.Request.Query["id"], out var id) || (id <= 0 && id != -1))
+        return Results.BadRequest("id must be positive or -1 for the latest clipboard.");
+    if (!TryGetClientId(context, out var clientId))
+        return Results.BadRequest("Invalid X-Client-ID.");
 
-    var entry = store.Find(user, id);
-    return entry is null ? Results.NotFound() : Results.File(entry.Data, entry.ContentType);
+    var entry = store.Find(user, id, clientId);
+    if (entry is null) return Results.NotFound();
+    context.Response.Headers["X-Clipboard-ID"] = entry.Id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    context.Response.Headers["X-Clipboard-Timestamp"] = entry.Timestamp.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    context.Response.Headers["X-Clipboard-Type"] = entry.Type;
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(entry.Data, entry.ContentType);
 });
 
 app.MapGet("/events", async (HttpContext context, ClipboardStore store) =>
@@ -102,6 +109,8 @@ app.MapGet("/events", async (HttpContext context, ClipboardStore store) =>
     context.Response.Headers.CacheControl = "no-cache";
     context.Response.Headers["X-Accel-Buffering"] = "no";
     await context.Response.StartAsync(context.RequestAborted);
+    await context.Response.WriteAsync(": connected\n\n", context.RequestAborted);
+    await context.Response.Body.FlushAsync(context.RequestAborted);
 
     try
     {

@@ -1,6 +1,7 @@
 package com.lightclipboardsync.android
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 
 // External shortcuts need a focused window to read the clipboard on Android 10+.
@@ -10,6 +11,7 @@ class SyncActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        startForegroundService(Intent(this, BackgroundSyncService::class.java))
         window.setBackgroundDrawableResource(android.R.color.transparent)
     }
 

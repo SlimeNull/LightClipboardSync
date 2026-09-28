@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ModuleBridge.initialize(this)
+        ClipboardEventSession.initialize(this)
         config = SyncConfig.load(this)
         serverDraft = savedInstanceState?.getString("serverDraft") ?: config.serverUrl
         userDraft = savedInstanceState?.getString("userDraft") ?: config.userId.toString()
@@ -115,7 +117,10 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.light(barColor, barColor),
         )
         setContent {
-            val connectionState by ClipboardEventSession.status.collectAsState()
+            val localState by ClipboardEventSession.status.collectAsState()
+            // The app-owned SSE session is the baseline path. The optional
+            // framework module must not replace its status or receiver.
+            val connectionState = localState
             MaterialTheme(
                 colorScheme = lightColorScheme(
                     primary = actionBlue,
@@ -143,7 +148,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-        if (notificationOn) startForegroundService(Intent(this, BackgroundSyncService::class.java))
+        startForegroundService(Intent(this, BackgroundSyncService::class.java))
     }
 
     private fun copyId() {
@@ -161,8 +166,9 @@ class MainActivity : ComponentActivity() {
         val changed = parsed != config
         config = parsed
         config.save(this)
+        ModuleBridge.publish(config, changed || showToast)
         if (changed || showToast) ClipboardEventSession.reconnect(this)
-        if (notificationOn && (changed || showToast)) {
+        if (changed || showToast) {
             startForegroundService(Intent(this, BackgroundSyncService::class.java))
         }
         if (showToast) toast("设置已保存")
@@ -173,7 +179,9 @@ class MainActivity : ComponentActivity() {
         if (!enabled) {
             notificationOn = false
             SyncConfig.setNotificationEnabled(this, false)
-            stopService(Intent(this, BackgroundSyncService::class.java))
+            // The foreground service is also the baseline sync path when the
+            // optional framework module is unavailable, so it remains active.
+            startForegroundService(Intent(this, BackgroundSyncService::class.java))
             return
         }
         if (!saveSettings(false)) return
@@ -218,12 +226,14 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         ClipboardEventSession.setVisible(this, true)
+        ModuleBridge.setObserving(true)
         logPrefs.registerOnSharedPreferenceChangeListener(logListener)
         logLines = SyncLog.lines(this).asReversed()
     }
 
     override fun onStop() {
         ClipboardEventSession.setVisible(this, false)
+        ModuleBridge.setObserving(false)
         logPrefs.unregisterOnSharedPreferenceChangeListener(logListener)
         super.onStop()
     }

@@ -1,23 +1,19 @@
 package com.lightclipboardsync.android
 
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.Context
-import android.content.Intent
-import android.os.Binder
-import android.os.UserHandle
 import android.util.Log
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
-import java.lang.reflect.Method
 
 class ClipboardHook : XposedModule() {
     private val handles = mutableListOf<XposedInterface.HookHandle>()
+    @Volatile private var runtime: ModuleClipboardRuntime? = null
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
-        log(Log.INFO, TAG, "Clipboard bridge v2 loaded in ${param.processName}; systemServer=${param.isSystemServer}")
+        log(Log.INFO, TAG, "Clipboard runtime v3 loaded in ${param.processName}; systemServer=${param.isSystemServer}")
         if (param.isSystemServer) {
             Thread.currentThread().contextClassLoader?.let { installHooks(it, "module loaded") }
         }
@@ -39,6 +35,13 @@ class ClipboardHook : XposedModule() {
             }
             val grantItem = ClipboardHookTargets.grantMethod(serviceClass)?.apply { isAccessible = true }
             deoptimizeCallers(serviceClass, classLoader)
+            serviceClass.declaredConstructors.forEach { constructor ->
+                handles += hook(constructor).intercept { chain ->
+                    val result = chain.proceed()
+                    initializeRuntime(chain.thisObject)
+                    result
+                }
+            }
             methods.forEach { method ->
                 handles += hook(method)
                     .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
@@ -47,7 +50,9 @@ class ClipboardHook : XposedModule() {
                         val clip = chain.getArg(0) as? ClipData ?: return@intercept result
                         val sourceUid = chain.getArg(1) as Int
                         try {
-                            dispatchCopy(chain.thisObject, clip, sourceUid, grantItem)
+                            val activeRuntime = runtime ?: initializeRuntime(chain.thisObject)
+                            activeRuntime?.copied(clip, sourceUid, grantItem)
+                                ?: log(Log.WARN, TAG, "Clipboard runtime not initialized; restart system required")
                         } catch (error: Throwable) {
                             log(Log.ERROR, TAG, "Clipboard bridge failed", error)
                         }
@@ -59,6 +64,25 @@ class ClipboardHook : XposedModule() {
             log(Log.WARN, TAG, "ClipboardService not available yet ($phase)")
         } catch (error: Throwable) {
             log(Log.ERROR, TAG, "Clipboard hook setup failed ($phase)", error)
+        }
+    }
+
+    @Synchronized
+    private fun initializeRuntime(service: Any): ModuleClipboardRuntime? {
+        runtime?.let { return it }
+        try {
+            val context = service.javaClass.getMethod("getContext").invoke(service) as Context
+            val write = service.javaClass.getDeclaredMethod("setPrimaryClipInternal",
+                ClipData::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }
+            val lockField = service.javaClass.declaredFields.firstOrNull { it.name == "mLock" }
+                ?: service.javaClass.declaredFields.first { it.name == "mClipboards" }
+            val lock = lockField.apply { isAccessible = true }.get(service) ?: return null
+            runtime = ModuleClipboardRuntime(this, context, service, write, lock)
+            log(Log.INFO, TAG, "System clipboard network runtime initialized")
+            return runtime
+        } catch (error: Throwable) {
+            log(Log.ERROR, TAG, "Clipboard runtime initialization failed", error)
+            return null
         }
     }
 
@@ -76,46 +100,7 @@ class ClipboardHook : XposedModule() {
         }
     }
 
-    @SuppressLint("MissingPermission") // The signature-protected receiver accepts the system sender.
-    private fun dispatchCopy(service: Any, clip: ClipData, sourceUid: Int, grantItem: Method?) {
-        val context = service.javaClass.getMethod("getContext").invoke(service) as Context
-        val identity = Binder.clearCallingIdentity()
-        try {
-            if (context.packageManager.getPackagesForUid(sourceUid)?.contains(PACKAGE_NAME) == true) return
-            val user = UserHandle.getUserHandleForUid(sourceUid)
-            val userId = UserHandle::class.java.getDeclaredMethod("getUserId", Int::class.javaPrimitiveType)
-                .invoke(null, sourceUid) as Int
-            for (index in 0 until clip.itemCount) {
-                val item = clip.getItemAt(index)
-                if (item.uri != null || item.intent?.data != null) {
-                    checkNotNull(grantItem) { "Clipboard URI grant method unavailable" }
-                    grantItem.invoke(service, item, sourceUid, PACKAGE_NAME, userId)
-                }
-            }
-            val intent = Intent(ACTION_HOOK_COPY).apply {
-                setClassName(PACKAGE_NAME, "$PACKAGE_NAME.HookReceiver")
-                clipData = ClipData(clip)
-            }
-            // The commit hook can run under the clipboard lock; send after leaving that call stack.
-            context.mainExecutor.execute {
-                val broadcastIdentity = Binder.clearCallingIdentity()
-                try {
-                    context.sendBroadcastAsUser(intent, user)
-                    log(Log.INFO, TAG, "Clipboard copy forwarded to app")
-                } catch (error: Throwable) {
-                    log(Log.ERROR, TAG, "Clipboard broadcast failed", error)
-                } finally {
-                    Binder.restoreCallingIdentity(broadcastIdentity)
-                }
-            }
-        } finally {
-            Binder.restoreCallingIdentity(identity)
-        }
-    }
-
     companion object {
         private const val TAG = "LightClipboardSync"
-        const val PACKAGE_NAME = "com.lightclipboardsync.android"
-        const val ACTION_HOOK_COPY = "$PACKAGE_NAME.HOOK_COPY"
     }
 }

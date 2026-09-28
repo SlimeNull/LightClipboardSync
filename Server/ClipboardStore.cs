@@ -2,10 +2,10 @@ using System.Threading.Channels;
 
 namespace LightClipboardSync.Server;
 
-public sealed record ClipboardEvent(long Id, string Type, string? Content);
+public sealed record ClipboardEvent(long Id, string Type, string? Content, long Timestamp);
 
 public sealed record ClipboardEntry(long Id, string Type, string ContentType, byte[] Data,
-    string? Content, Guid? SourceClient);
+    string? Content, Guid? SourceClient, long Timestamp);
 
 public sealed class ClipboardStore
 {
@@ -20,12 +20,13 @@ public sealed class ClipboardStore
         lock (_gate)
         {
             var state = GetOrCreate(user);
-            var entry = new ClipboardEntry(++_lastId, type, contentType, data, content, sourceClient);
+            var entry = new ClipboardEntry(++_lastId, type, contentType, data, content, sourceClient,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             state.Entries.AddLast(entry);
             if (state.Entries.Count > HistoryLimit)
                 state.Entries.RemoveFirst();
 
-            var notification = new ClipboardEvent(entry.Id, entry.Type, entry.Content);
+            var notification = new ClipboardEvent(entry.Id, entry.Type, entry.Content, entry.Timestamp);
             foreach (var subscriber in state.Subscribers)
             {
                 if (subscriber.ClientId != sourceClient || sourceClient is null)
@@ -35,13 +36,15 @@ public sealed class ClipboardStore
         }
     }
 
-    public ClipboardEntry? Find(Guid user, long id)
+    public ClipboardEntry? Find(Guid user, long id, Guid? requestingClient = null)
     {
         lock (_gate)
         {
             if (!_users.TryGetValue(user, out var state))
                 return null;
-            return state.Entries.FirstOrDefault(entry => entry.Id == id);
+            return id == -1
+                ? state.Entries.LastOrDefault(entry => requestingClient is null || entry.SourceClient != requestingClient)
+                : state.Entries.FirstOrDefault(entry => entry.Id == id);
         }
     }
 

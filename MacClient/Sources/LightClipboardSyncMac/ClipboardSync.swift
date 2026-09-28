@@ -121,7 +121,7 @@ final class ClipboardSync {
                 var request = settings.request(path: "events")
                 request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
-                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                     onStatusChange?("连接失败")
                     try await Task.sleep(for: .seconds(3))
                     continue

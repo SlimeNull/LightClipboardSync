@@ -1,6 +1,7 @@
 package com.lightclipboardsync.android
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import java.util.UUID
 
@@ -35,6 +36,12 @@ data class SyncConfig(
                 uri.userInfo != null || uri.query != null || uri.fragment != null) return null
             val userId = runCatching { UUID.fromString(user.trim()) }.getOrNull() ?: return null
             return SyncConfig(value, userId, clientId)
+        }
+
+        fun fromRemote(prefs: SharedPreferences): SyncConfig? {
+            val clientId = runCatching { UUID.fromString(prefs.getString("client_id", null)) }.getOrNull()
+                ?: return null
+            return parse(prefs.getString("server_url", "") ?: "", prefs.getString("user_id", "") ?: "", clientId)
         }
 
         fun notificationEnabled(context: Context): Boolean =
