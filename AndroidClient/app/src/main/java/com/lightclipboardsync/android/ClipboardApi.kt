@@ -11,7 +11,7 @@ class ClipboardApi(private val config: SyncConfig) {
     data class Download(val bytes: ByteArray, val mimeType: String, val id: Long,
                         val timestamp: Long, val type: String)
     data class Receipt(val id: Long, val timestamp: Long)
-    class HttpError(val code: Int, message: String) : IOException(message)
+    class HttpError(val code: Int, val endpoint: String, message: String) : IOException(message)
 
     private fun connection(url: String): HttpURLConnection {
         val connection = URL(url).openConnection() as HttpURLConnection
@@ -35,7 +35,9 @@ class ClipboardApi(private val config: SyncConfig) {
         request.setFixedLengthStreamingMode(content.bytes.size)
         try {
             request.outputStream.use { it.write(content.bytes) }
-            if (request.responseCode != 201) throw HttpError(request.responseCode, "上传失败：HTTP ${request.responseCode}")
+            if (request.responseCode != 201) {
+                throw HttpError(request.responseCode, "push", "上传失败：HTTP ${request.responseCode}")
+            }
             val event = JSONObject(request.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
             return Receipt(event.getLong("id"), event.optLong("timestamp", 0))
         } finally {
@@ -49,7 +51,9 @@ class ClipboardApi(private val config: SyncConfig) {
         val request = connection(url)
         request.readTimeout = 10000
         try {
-            if (request.responseCode != 200) throw HttpError(request.responseCode, "下载失败：HTTP ${request.responseCode}")
+            if (request.responseCode != 200) {
+                throw HttpError(request.responseCode, "pull", "下载失败：HTTP ${request.responseCode}")
+            }
             val mime = request.contentType ?: "application/octet-stream"
             return Download(request.inputStream.use { it.readBytes() }, mime,
                 request.getHeaderField("X-Clipboard-ID")?.toLongOrNull() ?: id,
@@ -71,7 +75,7 @@ class ClipboardApi(private val config: SyncConfig) {
                 val code = responseCode
                 onHeaders(code)
                 if (code != 200) {
-                    throw HttpError(code, "事件连接失败：HTTP $code")
+                    throw HttpError(code, "events", "事件连接失败：HTTP $code")
                 }
             } catch (error: Exception) {
                 disconnect()

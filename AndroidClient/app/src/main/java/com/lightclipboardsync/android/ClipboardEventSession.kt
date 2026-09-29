@@ -62,7 +62,6 @@ object ClipboardEventSession {
         initialize(context)
         // The framework module is optional. It must never disable the app's own
         // SSE session or make basic remote clipboard sync depend on LSPosed.
-        reconcile()
     }
 
     fun reconnect(context: Context) {
@@ -71,6 +70,11 @@ object ClipboardEventSession {
     }
 
     fun noteLocalCopy() { client?.noteLocalCopy() }
+
+    fun noteActivity(context: Context) {
+        initialize(context)
+        client?.noteActivity()
+    }
 
     private fun reconcile() { client?.setEnabled(visible || persistent) }
 }

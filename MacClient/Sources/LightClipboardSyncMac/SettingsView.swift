@@ -17,7 +17,7 @@ struct SettingsView: View {
                         .font(.title2.weight(.semibold))
                     HStack(spacing: 7) {
                         Circle()
-                            .fill(model.status == "已连接" || model.status == "已同步"
+                            .fill(model.status == "已连接"
                                   ? Color(red: 0.13, green: 0.64, blue: 0.49) : .orange)
                             .frame(width: 7, height: 7)
                         Text(model.status)

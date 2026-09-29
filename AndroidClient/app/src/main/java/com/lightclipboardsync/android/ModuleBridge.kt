@@ -14,7 +14,7 @@ import java.util.concurrent.Executors
 
 object ModuleBridge {
     val active = MutableStateFlow(false)
-    val status = MutableStateFlow(ConnectionState.MODULE_WAITING)
+    val status = MutableStateFlow(ConnectionState.CONNECTING)
     val logs = MutableStateFlow(emptyList<String>())
     private val worker = Executors.newSingleThreadExecutor()
     @Volatile private var service: XposedService? = null
@@ -30,8 +30,8 @@ object ModuleBridge {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action != ModuleProtocol.SNAPSHOT) return
                 status.value = runCatching {
-                    ConnectionState.valueOf(intent.getStringExtra("state") ?: "MODULE_WAITING")
-                }.getOrDefault(ConnectionState.MODULE_WAITING)
+                    ConnectionState.valueOf(intent.getStringExtra("state") ?: "CONNECTING")
+                }.getOrDefault(ConnectionState.CONNECTING)
                 logs.value = intent.getStringArrayListExtra("logs")?.takeLast(100) ?: emptyList()
             }
         }

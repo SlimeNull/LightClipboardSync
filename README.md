@@ -7,7 +7,7 @@
 需要 .NET 10 SDK。启动服务器：
 
 ```sh
-dotnet run --project Server/LightClipboardSync.Server.csproj --urls http://0.0.0.0:5078
+dotnet run --project Server/LightClipboardSync.Server/LightClipboardSync.Server.csproj --urls http://0.0.0.0:5078
 ```
 
 `0.0.0.0` 允许局域网内其他设备连接。macOS 客户端需要 macOS 13 或更新版本与完整 Xcode。用 Xcode 打开 `MacClient/LightClipboardSync.xcodeproj`，选择 `LightClipboardSync` scheme 即可构建运行；也可生成菜单栏应用：
@@ -30,9 +30,9 @@ ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-在应用内填入可从手机访问的服务器地址，以及与 macOS 相同的同步 UUID。主界面“同步剪切板”会上传当前文本或图片，并用 Toast 报告结果。Android 客户端启动后会运行前台同步服务，基础 SSE 和远端剪贴板接收不依赖 LSPosed 模块；启用 API 102 模块后，系统框架还会直接处理其他应用的复制并上传。息屏时停止重连，开屏后恢复 SSE 并用 `pull?id=-1` 检查息屏期间的最新其他设备记录；服务器响应头携带记录 ID、Unix 毫秒时间戳和类型。保存设置会同步到模块远程配置并重连。活动日志只记录时间、方向和类型，最多保留 100 行。部分手机的省电策略可能暂停后台网络；服务端不会重发断线期间的事件。
+在应用内填入可从手机访问的服务器地址，以及与 macOS 相同的同步 UUID。主界面“同步剪切板”会上传当前文本或图片，并用 Toast 报告结果。Android 客户端启动后会运行前台同步服务，基础 SSE、`pull?id=-1` 恢复和远端剪贴板接收不依赖 LSPosed 模块；启用 API 102 模块后，系统框架只负责捕获其他应用的复制并自动上传。屏幕熄灭后仍保持 events 连接 5 分钟，连续无操作后主动断开以节省开销，亮屏后立即重连并用 `pull?id=-1` 检查最新的其他设备记录。通知操作和控制中心磁贴会直接读取并上传剪贴板，不跳转到同步 Activity。服务器响应头携带记录 ID、Unix 毫秒时间戳和类型。保存设置会同步到模块远程配置并重连。活动日志记录连接、恢复、上传、接收和错误结果，最多保留 100 行。部分手机的省电策略可能暂停后台网络；服务端不会重发断线期间的事件。
 
-APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 的 LSPosed/Vector 框架。安装后在模块管理器中启用本模块，推荐作用域为“系统框架”（现代模块的 `system`，即 `system_server`），然后重启设备使系统进程加载 hook；每次更新 APK 后也需重启才能加载新的模块代码。模块观察 `ClipboardService.setPrimaryClipInternalLocked`（旧 Android 使用 `setPrimaryClipInternal`）提交的文本和图片，并在系统框架内直接 POST。系统框架也负责 SSE、开屏补取和将远端内容写回系统剪贴板，主应用不需要保活。图片 URI 使用系统剪贴板服务原有的授权方法读取。模块日志会记录加载、hook 安装、上传、接收和异常；应用活动日志会记录方向和类型。实际运行仍依赖设备的系统实现，尚待新版本的设备测试。没有模块时，上述手动入口仍可使用。
+APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 的 LSPosed/Vector 框架。安装后在模块管理器中启用本模块，推荐作用域为“系统框架”（现代模块的 `system`，即 `system_server`），然后重启设备使系统进程加载 hook；每次更新 APK 后也需重启才能加载新的模块代码。模块观察 `ClipboardService.setPrimaryClipInternalLocked`（旧 Android 使用 `setPrimaryClipInternal`）提交的文本和图片，并在系统框架内直接 POST。模块不负责 SSE、恢复或手动同步；没有模块时，应用自己的前台服务仍会持续接收远端事件并支持手动上传。图片 URI 使用系统剪贴板服务原有的授权方法读取。模块日志会记录加载、hook 安装、上传、接收和异常；应用活动日志会记录连接、恢复、上传、接收和错误结果。实际运行仍依赖设备的系统实现，尚待新版本的设备测试。
 
 界面设计稿和图标源文件位于 `design/`，Android 主界面使用 Compose Material 3 `Scaffold`，macOS 设置窗口使用 SwiftUI 布局容器。
 

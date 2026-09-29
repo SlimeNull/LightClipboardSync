@@ -92,7 +92,7 @@ class ModuleClipboardRuntime(
             if (updated == null) { state = ConnectionState.NOT_CONFIGURED; publishSnapshot() }
         } catch (error: Throwable) {
             module.log(Log.ERROR, TAG, "Module settings unavailable", error)
-            state = ConnectionState.MODULE_WAITING
+            state = ConnectionState.CONNECTING
             publishSnapshot()
             if (context.getSystemService(PowerManager::class.java).isInteractive) {
                 settingsWorker.schedule({ refreshConfiguration() }, 5, TimeUnit.SECONDS)

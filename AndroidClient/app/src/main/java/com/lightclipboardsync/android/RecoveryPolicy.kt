@@ -6,8 +6,12 @@ data class ClipboardPosition(val timestamp: Long, val id: Long) : Comparable<Cli
 }
 
 internal object RecoveryPolicy {
+    fun shouldApplyLatest(latest: ClipboardPosition, localCopyAt: Long,
+                          unchanged: Boolean, newest: ClipboardPosition?): Boolean =
+        latest.timestamp >= localCopyAt && unchanged && (newest == null || latest > newest)
+
     fun shouldApply(latest: ClipboardPosition, lockedAt: Long, localCopyAt: Long,
                     unchanged: Boolean, newest: ClipboardPosition?): Boolean =
         lockedAt > 0 && latest.timestamp > lockedAt && localCopyAt <= lockedAt &&
-            unchanged && (newest == null || latest > newest)
+            shouldApplyLatest(latest, localCopyAt, unchanged, newest)
 }

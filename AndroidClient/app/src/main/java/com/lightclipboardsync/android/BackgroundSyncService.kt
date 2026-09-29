@@ -21,6 +21,9 @@ class BackgroundSyncService : Service() {
             startForeground(1001, notification())
         }
         ClipboardEventSession.setPersistent(this, true)
+        if (intent?.action == ACTION_SYNC_CLIPBOARD) {
+            ManualSync.start(this)
+        }
         return START_STICKY
     }
 
@@ -31,18 +34,22 @@ class BackgroundSyncService : Service() {
     }
 
     private fun notification(): Notification {
-        val intent = Intent(this, SyncActivity::class.java)
+        val contentIntent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val pending = PendingIntent.getActivity(this, 1001, intent,
+        val contentPending = PendingIntent.getActivity(this, 1001, contentIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val syncIntent = Intent(this, BackgroundSyncService::class.java)
+            .setAction(ACTION_SYNC_CLIPBOARD)
+        val syncPending = PendingIntent.getService(this, 1002, syncIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return Notification.Builder(this, "clipboard_sync")
             .setSmallIcon(R.drawable.ic_clipboard)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.notification_text))
-            .setContentIntent(pending)
+            .setContentIntent(contentPending)
             .setOngoing(true)
             .addAction(Notification.Action.Builder(R.drawable.ic_clipboard,
-                getString(R.string.sync_clipboard), pending).build())
+                getString(R.string.sync_clipboard), syncPending).build())
             .build()
     }
 

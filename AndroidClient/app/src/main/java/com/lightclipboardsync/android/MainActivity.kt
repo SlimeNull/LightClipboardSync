@@ -270,14 +270,9 @@ private fun HomeScreen(
                         Text("剪贴板同步", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = ink)
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            val indicatorColor = when (connectionState) {
-                                ConnectionState.CONNECTED -> teal
-                                ConnectionState.FAILED -> Color(0xFFD45B63)
-                                ConnectionState.CONNECTING, ConnectionState.RECONNECTING -> actionBlue
-                                else -> muted
-                            }
+                            val indicatorColor = if (connectionState == ConnectionState.CONNECTED) teal else actionBlue
                             Box(Modifier.size(7.dp).background(indicatorColor, CircleShape))
-                            Text(connectionState.label,
+                            Text(if (connectionState == ConnectionState.CONNECTED) "已连接" else "正在连接",
                                 modifier = Modifier.padding(start = 8.dp), fontSize = 13.sp, color = muted)
                         }
                     }

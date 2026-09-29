@@ -5,9 +5,13 @@ import java.net.HttpURLConnection
 import java.util.concurrent.atomic.AtomicLong
 
 enum class ConnectionState(val label: String) {
-    NOT_CONFIGURED("服务器未设置"), DISCONNECTED("未连接"), CONNECTING("连接中"),
-    CONNECTED("已连接"), RECONNECTING("重新连接中"), FAILED("连接失败"),
-    PAUSED("息屏暂停"), MODULE_WAITING("模块待启动"),
+    NOT_CONFIGURED("正在连接"),
+    DISCONNECTED("正在连接"),
+    CONNECTING("正在连接"),
+    CONNECTED("已连接"),
+    RECONNECTING("正在连接"),
+    FAILED("正在连接"),
+    PAUSED("正在连接"),
 }
 
 class ClipboardEventClient(
@@ -18,6 +22,11 @@ class ClipboardEventClient(
     initiallyInteractive: Boolean,
     initialLockedAt: Long = 0,
 ) {
+    companion object {
+        private const val SCREEN_OFF_GRACE_MS = 5 * 60 * 1000L
+        private const val WAIT_SLICE_MS = 1_000L
+    }
+
     private val gate = Object()
     @Volatile private var enabled = false
     @Volatile private var interactive = initiallyInteractive
@@ -25,8 +34,10 @@ class ClipboardEventClient(
     @Volatile private var state = ConnectionState.DISCONNECTED
     @Volatile private var localCopyAt = 0L
     private val localVersion = AtomicLong()
-    private var lockedAt = initialLockedAt
-    private var recoveryAfter = if (initiallyInteractive && initialLockedAt > 0) initialLockedAt else 0L
+    private var screenOffAt = if (!initiallyInteractive) {
+        initialLockedAt.takeIf { it > 0 } ?: System.currentTimeMillis()
+    } else 0L
+    private var idleSuspended = false
     private var newest: ClipboardPosition? = null
     private var worker: Thread? = null
     private var connection: HttpURLConnection? = null
@@ -53,9 +64,10 @@ class ClipboardEventClient(
         val old = synchronized(gate) {
             revision++
             if (configurationChanged) newest = null
+            idleSuspended = false
             gate.notifyAll()
             worker?.interrupt()
-            if (enabled) publish(if (interactive) ConnectionState.CONNECTING else ConnectionState.PAUSED)
+            if (enabled) publish(if (canConnectLocked()) ConnectionState.CONNECTING else ConnectionState.PAUSED)
             connection
         }
         old?.disconnect()
@@ -64,16 +76,20 @@ class ClipboardEventClient(
     fun screenChanged(isInteractive: Boolean, time: Long = System.currentTimeMillis()) {
         val old = synchronized(gate) {
             interactive = isInteractive
-            if (!isInteractive) lockedAt = time
-            val needsConnection = state != ConnectionState.CONNECTED
-            if (needsConnection) {
+            if (!isInteractive) {
+                screenOffAt = time
+                idleSuspended = false
+                gate.notifyAll()
+                null
+            } else {
+                screenOffAt = 0L
+                idleSuspended = false
                 revision++
-                if (isInteractive && lockedAt > 0) recoveryAfter = lockedAt
-                publish(if (isInteractive) ConnectionState.CONNECTING else ConnectionState.PAUSED)
+                gate.notifyAll()
                 worker?.interrupt()
+                if (enabled) publish(ConnectionState.CONNECTING)
+                connection
             }
-            gate.notifyAll()
-            if (needsConnection) connection else null
         }
         old?.disconnect()
     }
@@ -81,6 +97,23 @@ class ClipboardEventClient(
     fun noteLocalCopy(time: Long = System.currentTimeMillis()) {
         localCopyAt = time
         localVersion.incrementAndGet()
+        noteActivity(time)
+    }
+
+    fun noteActivity(time: Long = System.currentTimeMillis()) {
+        var old: HttpURLConnection? = null
+        synchronized(gate) {
+            if (!interactive) {
+                screenOffAt = time
+                idleSuspended = false
+                revision++
+                gate.notifyAll()
+                worker?.interrupt()
+                if (enabled) publish(ConnectionState.CONNECTING)
+                old = connection
+            }
+        }
+        old?.disconnect()
     }
 
     fun noteUploaded(receipt: ClipboardApi.Receipt) = synchronized(gate) {
@@ -94,7 +127,7 @@ class ClipboardEventClient(
 
     private fun readEvents() {
         try {
-            while (awaitInteractive()) {
+            while (awaitConnectionWindow()) {
                 Thread.interrupted()
                 val attempt = revision
                 val currentConfig = config()
@@ -108,7 +141,7 @@ class ClipboardEventClient(
                     val stream = api.openEvents(
                         onConnecting = { candidate ->
                             val accept = synchronized(gate) {
-                                if (current(attempt) && interactive) {
+                                if (current(attempt) && canConnectLocked()) {
                                     connection = candidate
                                     true
                                 } else false
@@ -124,11 +157,17 @@ class ClipboardEventClient(
                     stream.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
                         val data = mutableListOf<String>()
                         while (current(attempt)) {
+                            if (shouldSuspendForIdle(attempt)) break
                             val line = reader.readLine() ?: break
                             if (line.isEmpty()) {
                                 if (data.isNotEmpty()) {
                                     runCatching { applyEvent(JSONObject(data.joinToString("\n")), api, attempt) }
-                                        .onFailure { onLog("接收失败", "text") }
+                                        .onFailure { error ->
+                                            val action = if (error is ClipboardApi.HttpError) {
+                                                "接收失败 HTTP ${error.code}"
+                                            } else "接收失败"
+                                            onLog(action, "text")
+                                        }
                                     data.clear()
                                 }
                             } else if (line.startsWith("data:")) {
@@ -136,14 +175,22 @@ class ClipboardEventClient(
                             }
                         }
                     }
-                    publishIfCurrent(attempt, if (interactive) ConnectionState.RECONNECTING else ConnectionState.PAUSED)
-                } catch (_: Exception) {
-                    publishIfCurrent(attempt, if (interactive) ConnectionState.FAILED else ConnectionState.PAUSED)
+                    publishIfCurrent(attempt, if (isIdleSuspended()) ConnectionState.PAUSED else ConnectionState.RECONNECTING)
+                } catch (error: Exception) {
+                    if (isIdleSuspended()) {
+                        publishIfCurrent(attempt, ConnectionState.PAUSED)
+                    } else {
+                        val action = if (error is ClipboardApi.HttpError) {
+                            "连接失败 HTTP ${error.code}"
+                        } else "连接失败"
+                        onLog(action, "events")
+                        publishIfCurrent(attempt, ConnectionState.FAILED)
+                    }
                 } finally {
                     val old = synchronized(gate) { connection.also { connection = null } }
                     old?.disconnect()
                 }
-                if (current(attempt) && interactive) {
+                if (current(attempt) && canConnect()) {
                     pause()
                     publishIfCurrent(attempt, ConnectionState.RECONNECTING)
                 }
@@ -156,32 +203,72 @@ class ClipboardEventClient(
         }
     }
 
-    private fun awaitInteractive(): Boolean = synchronized(gate) {
-        while (enabled && !interactive) {
+    private fun awaitConnectionWindow(): Boolean = synchronized(gate) {
+        while (enabled) {
+            if (canConnectLocked()) return true
             publish(ConnectionState.PAUSED)
-            try { gate.wait() } catch (_: InterruptedException) { }
+            val remaining = if (interactive || screenOffAt == 0L) {
+                WAIT_SLICE_MS
+            } else {
+                (screenOffAt + SCREEN_OFF_GRACE_MS - System.currentTimeMillis())
+                    .coerceAtLeast(WAIT_SLICE_MS)
+            }
+            try {
+                gate.wait(remaining)
+            } catch (_: InterruptedException) {
+            }
         }
-        enabled
+        false
     }
 
+    private fun canConnect(): Boolean = synchronized(gate) { canConnectLocked() }
+
+    private fun canConnectLocked(): Boolean {
+        if (!enabled) return false
+        if (interactive) return true
+        if (screenOffAt == 0L || System.currentTimeMillis() - screenOffAt < SCREEN_OFF_GRACE_MS) {
+            return true
+        }
+        idleSuspended = true
+        return false
+    }
+
+    private fun shouldSuspendForIdle(attempt: Int): Boolean {
+        synchronized(gate) {
+            if (current(attempt) && !interactive && screenOffAt > 0L &&
+                System.currentTimeMillis() - screenOffAt >= SCREEN_OFF_GRACE_MS) {
+                idleSuspended = true
+                publish(ConnectionState.PAUSED)
+                return true
+            }
+            return idleSuspended
+        }
+    }
+
+    private fun isIdleSuspended(): Boolean = synchronized(gate) { idleSuspended }
+
     private fun recoverLatest(api: ClipboardApi, attempt: Int) {
-        val after = synchronized(gate) { recoveryAfter }
-        if (after <= 0 || !interactive) return
+        if (!interactive) return
         val before = localVersion.get()
-        val latest = try { api.pull(-1) } catch (error: ClipboardApi.HttpError) {
-            if (error.code != 404) throw error
+        val latest = try {
+            api.pull(-1)
+        } catch (error: ClipboardApi.HttpError) {
+            if (error.code != 404) {
+                onLog("恢复失败 HTTP ${error.code}", "events")
+                throw error
+            }
             null
         }
         if (!current(attempt)) return
         if (latest != null) {
             val position = ClipboardPosition(latest.timestamp, latest.id)
             val accepted = synchronized(gate) {
-                RecoveryPolicy.shouldApply(position, after, localCopyAt,
+                RecoveryPolicy.shouldApplyLatest(position, localCopyAt,
                     before == localVersion.get(), newest)
             }
-            if (accepted) applyRecord(latest, attempt, before, "开屏补取")
+            if (accepted) applyRecord(latest, attempt, before, "恢复")
+            else onLog("恢复跳过", latest.type)
         }
-        synchronized(gate) { if (recoveryAfter == after) recoveryAfter = 0 }
     }
 
     private fun applyEvent(event: JSONObject, api: ClipboardApi, attempt: Int) {

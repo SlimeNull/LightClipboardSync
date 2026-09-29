@@ -13,6 +13,7 @@ object ManualSync {
     private val main = Handler(Looper.getMainLooper())
 
     fun start(context: Context) {
+        ClipboardEventSession.noteActivity(context)
         val config = SyncConfig.load(context)
         if (config.serverUrl.isBlank()) {
             toast(context, "请先设置服务器地址")
@@ -28,14 +29,23 @@ object ManualSync {
         }
         val appContext = context.applicationContext
         worker.execute {
+            var contentType = "text"
             try {
                 val content = ClipboardContentReader.read(appContext, clip)
                     ?: throw IllegalStateException("剪切板中没有可同步的文本或图片")
-                SyncLog.add(appContext, "发送", content.type)
+                contentType = content.type
+                SyncLog.add(appContext, "发送", contentType)
                 ClipboardApi(config).push(content)
                 toast(appContext, "同步成功")
             } catch (error: Exception) {
-                toast(appContext, error.message?.takeIf { it.startsWith("剪切板") } ?: "同步失败")
+                val action = when (error) {
+                    is ClipboardApi.HttpError -> "发送失败 HTTP ${error.code}"
+                    else -> "发送失败"
+                }
+                SyncLog.add(appContext, action, contentType)
+                toast(appContext, error.message?.takeIf {
+                    it.startsWith("剪切板") || it.startsWith("图片")
+                } ?: "同步失败")
             }
         }
     }
