@@ -1,55 +1,62 @@
 # LightClipboardSync
 
-轻量的文本与图片剪贴板同步。当前实现包含 ASP.NET Core 服务器、macOS 菜单栏客户端、Android 客户端和 Windows 客户端。
+LightClipboardSync 是一个轻量的文本与图片剪贴板同步工具，支持 Android、macOS、Windows 和自建服务器。同步服务只提供上传、拉取和实时事件三个接口，适合个人设备或小规模私有部署。
 
-Windows 客户端位于 `WindowsClient/`，由 `LightClipboardSync.Windows.Service`（管理员权限控制台后台服务）和 `LightClipboardSync.Windows`（管理员权限 WPF 配置窗口）组成。后台服务使用 Windows `AddClipboardFormatListener`/`WM_CLIPBOARDUPDATE` 监听剪贴板变化，通过 `/push` 上传，并持续消费 `/events` 将远端文本或图片写回剪贴板；配置窗口只展示服务器地址和同步 UUID，通过命名管道保存配置，关闭窗口不会停止服务。详见 `WindowsClient/README.md`。
+## 使用概述
 
-## 启动
+1. 部署一个服务器：可以运行项目中的 ASP.NET Server，也可以部署到 Cloudflare Worker。
+2. 从项目 Releases 下载对应平台的客户端。
+3. 在**所有客户端中设置完全相同的同步 GUID**。GUID 不同的客户端属于不同的同步空间，无法互相同步。
+4. 在客户端填写服务器基础地址，例如 `https://sync.example.com`，不要追加 `/push`、`/pull` 或 `/events`。
 
-需要 .NET 10 SDK。启动服务器：
+Android 客户端没有安装模块时，仍然可以接收远端剪贴板、执行恢复和手动同步；模块只用于自动捕获其他应用复制的内容并调用 `/push`。Windows 服务和 macOS 菜单栏应用可以在后台运行并消费实时事件。
 
-```sh
-dotnet run --project Server/LightClipboardSync.Server/LightClipboardSync.Server.csproj --urls http://0.0.0.0:5078
+## 服务器部署
+
+服务器有两种部署方式：
+
+- 在自己的服务器上运行 `Server/LightClipboardSync.Server`；
+- 使用 `CloudflareWorker/` 部署到 Cloudflare Workers + Durable Object。
+
+详细说明见 [服务器部署文档](docs/server_deployment.md) 和 [CloudflareWorker/README.md](CloudflareWorker/README.md)。
+
+自建 ASP.NET Server 目前不负责证书和 HTTPS 终止。公网或跨网络部署时，推荐让 Server 只监听本机地址，再使用 Nginx 等反向代理工具处理 HTTPS、证书和 `/events` 长连接。可信局域网可以使用 HTTP，但明文 HTTP 不适合公网。
+
+## 安全与数据保存
+
+- 服务器不会持久化存储任何用户数据；当前只在内存中保留每个 GUID 最近三条记录，服务重启后即清空。
+- GUID 同时作为共享认证凭证。能够连接服务器并持有相同 GUID 的设备，都可以读写对应的剪贴板。
+- 项目更推荐用户自己搭建服务器，以便自行控制网络、日志和数据生命周期。
+- 在不受信任的网络中应使用 HTTPS。自建服务器可通过 Nginx 反向代理提供 HTTPS；Cloudflare Worker 默认使用 HTTPS。
+
+## HTTP 接口
+
+所有请求使用：
+
+```http
+Authorization: Basic base64(<GUID>:)
 ```
 
-`0.0.0.0` 允许局域网内其他设备连接。macOS 客户端需要 macOS 13 或更新版本与完整 Xcode。用 Xcode 打开 `MacClient/LightClipboardSync.xcodeproj`，选择 `LightClipboardSync` scheme 即可构建运行；也可生成菜单栏应用：
-
-```sh
-sh MacClient/build-app.sh
-open MacClient/dist/LightClipboardSync.app
-```
-
-首次启动会生成并保存同步 UUID。点击菜单栏剪贴板图标，在“设置…”中填写服务器地址；复制该 UUID，并在其他设备上设置相同值即可使用同一份剪贴板。客户端每 0.5 秒检查系统剪贴板变化，启动时已有的内容不会自动上传。
-
-## Android 客户端
-
-用 Android Studio 打开 `AndroidClient` 目录运行，或在本机已有 Android SDK 和 Android Studio 的环境中构建：
-
-```sh
-cd AndroidClient
-JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" \
-ANDROID_HOME="$HOME/Library/Android/sdk" ./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-在应用内填入可从手机访问的服务器地址，以及与 macOS 相同的同步 UUID。主界面“同步剪切板”会上传当前文本或图片，并用 Toast 报告结果。Android 客户端启动后会运行前台同步服务，基础 SSE、`pull?id=-1` 恢复和远端剪贴板接收不依赖 LSPosed 模块；启用 API 102 模块后，系统框架只负责捕获其他应用的复制并自动上传。Android 10+ 会限制后台读取系统剪贴板；应用提供可选的悬浮窗焦点回退，首次使用后台手动同步前需在设置中授予“显示在其他应用上层”权限。设置页也提供忽略电池优化入口，ColorOS 等厂商系统还可能要求用户在系统设置中允许后台活动和自启动。屏幕熄灭后仍保持 events 连接 5 分钟，连续无操作后主动断开以节省开销，亮屏后立即重连并用 `pull?id=-1` 检查最新的其他设备记录。通知操作和控制中心磁贴会直接读取并上传剪贴板，不跳转到同步 Activity。远端写入使用系统 `ClipboardManager`，图片通过应用的 `content://` provider 提供给系统剪贴板；单条写入失败不会中断 events。部分 ColorOS 版本会把 `WRITE_CLIPBOARD` 设置为仅前台，即使前台服务和悬浮窗权限都已开启，后台事件仍只能接收而不能写入系统剪贴板；应用会记录“接收失败 权限”，回到前台后通过恢复请求再次尝试。要在这类系统上实现无界面后台写入，需要系统框架 hook/模块直接调用剪贴板服务，普通应用 API 没有可绕过的权限。服务器响应头携带记录 ID、Unix 毫秒时间戳和类型。保存设置会同步到模块远程配置并重连。活动日志记录连接、恢复、上传、接收和错误结果，最多保留 100 行。部分手机的省电策略可能暂停后台网络；服务端不会重发断线期间的事件。
-
-APK 同时包含现代 libxposed API 102 模块入口，适用于支持 API 102 的 LSPosed/Vector 框架。安装后在模块管理器中启用本模块，推荐作用域为“系统框架”（现代模块的 `system`，即 `system_server`），然后重启设备使系统进程加载 hook；每次更新 APK 后也需重启才能加载新的模块代码。模块观察 `ClipboardService.setPrimaryClipInternalLocked`（旧 Android 使用 `setPrimaryClipInternal`）提交的文本和图片，并在系统框架内直接 POST；对已启用模块的本应用，仅额外放行 ColorOS 的后台 `WRITE_CLIPBOARD` 检查，使应用自己的 events 路径能够完成远端写入。模块不负责 SSE、恢复或手动同步；没有模块时，应用自己的前台服务仍会持续接收远端事件并支持手动上传。图片 URI 使用系统剪贴板服务原有的授权方法读取。模块日志会记录加载、hook 安装、上传、接收和异常；应用活动日志会记录连接、恢复、上传、接收和错误结果。实际运行仍依赖设备的系统实现，尚待新版本的设备测试。
-
-界面设计稿和图标源文件位于 `design/`，Android 主界面使用 Compose Material 3 `Scaffold`，macOS 设置窗口使用 SwiftUI 布局容器。
-
-## HTTP 协议
-
-三个接口均使用 `Authorization: Basic <base64(UUID:)>`，即 UUID 为 Basic 用户名、密码为空。UUID 使用标准带连字符格式。未授权返回 401。可选的 `X-Client-ID: <设备 UUID>` 标识发送设备；同一设备的 `/events` 订阅不会收到自身 `/push` 产生的事件。
+可选的 `X-Client-ID` 用于标识设备，并避免设备收到自己发送的实时事件。
 
 | 接口 | 用途 |
 | --- | --- |
-| `POST /push?type=text` | 请求体为 UTF-8 文本，`Content-Type: text/plain; charset=utf-8` |
-| `POST /push?type=image` | 请求体为图片，`Content-Type` 为 `image/png`、`image/jpeg` 或 `image/webp` |
-| `GET /events` | SSE；每条消息的 `data` 是 `{"id":1,"type":"text","content":"...","timestamp":1730000000000}` |
-| `GET /pull?id=1` | 获取指定事件的原始请求体和 Content-Type |
-| `GET /pull?id=-1` | 配合 `X-Client-ID` 获取最近一条其他设备记录；响应头包含 `X-Clipboard-ID`、`X-Clipboard-Timestamp`（Unix 毫秒）和 `X-Clipboard-Type` |
+| `POST /push?type=text|image` | 上传 UTF-8 文本或 PNG/JPEG/WebP 原始图片 |
+| `GET /pull?id=<id>` | 拉取指定记录；`id=-1` 获取最近一条其他设备记录 |
+| `GET /events` | 通过 SSE 接收新记录 |
 
-每次 `/push` 返回 201 和同格式 JSON 事件，其中包含 `timestamp`（Unix 毫秒）。事件 ID 在当前服务器进程内全局递增。文本的 UTF-8 请求体严格小于 64 KiB 时，SSE 的 `content` 内联文本；大文本和图片的 `content` 为 `null`，客户端用 `/pull` 获取。单条上传上限为 25 MiB，超过返回 413。每个 UUID 只保留最近 3 条内容，更早的 `/pull` 返回 404。
+单条内容上限为 25 MiB，每个 GUID 保留最近三条记录。图片由客户端编码，服务器只保存和返回原始字节及 MIME 类型。SSE 断线不会重放事件，客户端通过重新连接和 `pull?id=-1` 恢复。
 
-SSE 仅发送订阅期间产生的新事件；断线重连不会重发。服务器数据保存在内存中，重启后历史和事件计数清空。服务器不验证 UUID 的所有权，持有同一 UUID 即可读写同一份剪贴板；在不受信任的网络中应使用 HTTPS，明文 HTTP 会暴露 Basic 凭证和内容。
+## 项目结构
+
+- `Server/`：ASP.NET Core 服务端；
+- `CloudflareWorker/`：Cloudflare Workers 部署版本；
+- `AndroidClient/`：Android 客户端及可选系统框架模块；
+- `MacClient/`：macOS 菜单栏客户端；
+- `WindowsClient/`：Windows 后台服务和配置窗口；
+- `docs/`：服务器部署、反向代理和 Cloudflare 说明；
+- `design/`：界面和图标设计资源。
+
+## 文档
+
+更多服务器说明见 [docs/](docs/README.md)。客户端构建细节面向开发者，正式使用时请优先从 Releases 获取已经构建好的客户端。
