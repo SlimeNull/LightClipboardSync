@@ -65,6 +65,11 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# Cloudflare Workers
+CloudflareWorker/node_modules/
+CloudflareWorker/.wrangler/
+CloudflareWorker/.dev.vars
+
 # Tye
 .tye/
 
