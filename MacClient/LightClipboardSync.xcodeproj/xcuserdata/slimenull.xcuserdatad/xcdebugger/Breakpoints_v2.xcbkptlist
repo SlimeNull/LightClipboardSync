@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   uuid = "A696BD31-54E6-480E-859E-11D779F3FBA5"
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "FCFA21ED-EA0B-45E8-938B-4F34CC44EAB7"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Sources/LightClipboardSyncMac/ClipboardSync.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "185"
+            endingLineNumber = "185"
+            landmarkName = "readEvents(generation:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "FCFA21ED-EA0B-45E8-938B-4F34CC44EAB7 - 205a32dc82ada484"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(1) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "185"
+                  endingLineNumber = "185">
+               </Location>
+               <Location
+                  uuid = "FCFA21ED-EA0B-45E8-938B-4F34CC44EAB7 - ecd6759d967ab044"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(11) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "185"
+                  endingLineNumber = "185">
+               </Location>
+               <Location
+                  uuid = "FCFA21ED-EA0B-45E8-938B-4F34CC44EAB7 - ac51092ab9e7ee46"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(13) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "185"
+                  endingLineNumber = "185">
+               </Location>
+               <Location
+                  uuid = "FCFA21ED-EA0B-45E8-938B-4F34CC44EAB7 - d21419b55f63f4b"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(18) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "185"
+                  endingLineNumber = "185">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "FC484037-A1E7-4B8B-A0B1-4096333D77F0"
+            shouldBeEnabled = "No"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "Sources/LightClipboardSyncMac/ClipboardSync.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "186"
+            endingLineNumber = "186"
+            landmarkName = "readEvents(generation:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  uuid = "FC484037-A1E7-4B8B-A0B1-4096333D77F0 - 205a32dc82ada4e5"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(1) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "186"
+                  endingLineNumber = "186">
+               </Location>
+               <Location
+                  uuid = "FC484037-A1E7-4B8B-A0B1-4096333D77F0 - ecd6759d967ab025"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(11) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "186"
+                  endingLineNumber = "186">
+               </Location>
+               <Location
+                  uuid = "FC484037-A1E7-4B8B-A0B1-4096333D77F0 - ac51092ab9e7ee27"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(13) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "186"
+                  endingLineNumber = "186">
+               </Location>
+               <Location
+                  uuid = "FC484037-A1E7-4B8B-A0B1-4096333D77F0 - d21419b55f63f2a"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "(18) suspend resume partial function for LightClipboardSync.ClipboardSync.readEvents(generation: Swift.Int) async -&gt; ()"
+                  moduleName = "LightClipboardSync.debug.dylib"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/slimenull/Documents/Projects/LightClipboardSync/MacClient/Sources/LightClipboardSyncMac/ClipboardSync.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "186"
+                  endingLineNumber = "186">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>
