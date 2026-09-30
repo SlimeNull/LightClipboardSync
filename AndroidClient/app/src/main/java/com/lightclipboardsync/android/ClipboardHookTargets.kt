@@ -4,6 +4,10 @@ import android.content.ClipData
 import java.lang.reflect.Method
 
 internal object ClipboardHookTargets {
+    fun accessMethods(service: Class<*>): List<Method> = service.declaredMethods.filter { method ->
+        method.name == "clipboardAccessAllowed" && method.returnType == Boolean::class.javaPrimitiveType
+    }
+
     fun commitMethods(service: Class<*>): List<Method> {
         val candidates = service.declaredMethods.filter { method ->
             method.parameterTypes.firstOrNull() == ClipData::class.java &&

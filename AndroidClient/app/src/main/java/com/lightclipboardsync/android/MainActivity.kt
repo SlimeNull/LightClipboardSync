@@ -10,8 +10,10 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -91,6 +93,8 @@ class MainActivity : ComponentActivity() {
     private var serverDraft by mutableStateOf("")
     private var userDraft by mutableStateOf("")
     private var notificationOn by mutableStateOf(false)
+    private var overlayGranted by mutableStateOf(false)
+    private var batteryOptimizationIgnored by mutableStateOf(false)
     private var logLines by mutableStateOf(emptyList<String>())
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -109,6 +113,8 @@ class MainActivity : ComponentActivity() {
         serverDraft = savedInstanceState?.getString("serverDraft") ?: config.serverUrl
         userDraft = savedInstanceState?.getString("userDraft") ?: config.userId.toString()
         notificationOn = SyncConfig.notificationEnabled(this)
+        overlayGranted = BackgroundClipboard.hasOverlayPermission(this)
+        batteryOptimizationIgnored = BackgroundClipboard.isIgnoringBatteryOptimizations(this)
         logPrefs = getSharedPreferences(SyncLog.PREFS, Context.MODE_PRIVATE)
         logLines = SyncLog.lines(this).asReversed()
         val barColor = android.graphics.Color.rgb(246, 248, 252)
@@ -139,6 +145,10 @@ class MainActivity : ComponentActivity() {
                     onUserChange = { userDraft = it },
                     notificationOn = notificationOn,
                     onNotificationChange = ::changeNotification,
+                    overlayGranted = overlayGranted,
+                    onRequestOverlay = ::requestOverlayPermission,
+                    batteryOptimizationIgnored = batteryOptimizationIgnored,
+                    onRequestBatteryOptimization = ::requestBatteryOptimization,
                     logs = logLines,
                     onSync = { if (saveSettings(false)) ManualSync.start(this) },
                     onSave = { saveSettings(true) },
@@ -205,6 +215,28 @@ class MainActivity : ComponentActivity() {
         super.onSaveInstanceState(outState)
     }
 
+    override fun onResume() {
+        super.onResume()
+        overlayGranted = BackgroundClipboard.hasOverlayPermission(this)
+        batteryOptimizationIgnored = BackgroundClipboard.isIgnoringBatteryOptimizations(this)
+        // ColorOS may destroy the background socket while the activity is
+        // stopped without notifying the SSE reader. Start a fresh session
+        // whenever the app becomes interactive again.
+        ClipboardEventSession.reconnect(this)
+    }
+
+    private fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || overlayGranted) return
+        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")))
+    }
+
+    private fun requestBatteryOptimization() {
+        if (BackgroundClipboard.requestIgnoreBatteryOptimizations(this)) {
+            batteryOptimizationIgnored = BackgroundClipboard.isIgnoringBatteryOptimizations(this)
+        }
+    }
+
     private fun requestTile() {
         if (Build.VERSION.SDK_INT < 33) {
             toast("请在控制中心编辑界面添加")
@@ -248,6 +280,10 @@ private fun HomeScreen(
     onUserChange: (String) -> Unit,
     notificationOn: Boolean,
     onNotificationChange: (Boolean) -> Unit,
+    overlayGranted: Boolean,
+    onRequestOverlay: () -> Unit,
+    batteryOptimizationIgnored: Boolean,
+    onRequestBatteryOptimization: () -> Unit,
     logs: List<String>,
     onSync: () -> Unit,
     onSave: () -> Unit,
@@ -356,6 +392,44 @@ private fun HomeScreen(
                             fontWeight = FontWeight.Medium, color = ink)
                         Switch(checked = notificationOn, onCheckedChange = onNotificationChange,
                             colors = SwitchDefaults.colors(checkedTrackColor = actionBlue))
+                    }
+                }
+            }
+            item {
+                Surface(shape = panelShape, color = Color.White, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("后台读取剪贴板", fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium, color = ink)
+                            Text(if (overlayGranted) "已允许悬浮窗读取" else "需要悬浮窗权限",
+                                fontSize = 12.sp, color = muted)
+                        }
+                        if (!overlayGranted) {
+                            Button(onClick = onRequestOverlay, shape = panelShape,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                                Text("去开启")
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Surface(shape = panelShape, color = Color.White, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("电池优化", fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium, color = ink)
+                            Text(if (batteryOptimizationIgnored) "已忽略电池优化" else "可能被系统限制后台网络",
+                                fontSize = 12.sp, color = muted)
+                        }
+                        if (!batteryOptimizationIgnored) {
+                            Button(onClick = onRequestBatteryOptimization, shape = panelShape,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                                Text("去开启")
+                            }
+                        }
                     }
                 }
             }

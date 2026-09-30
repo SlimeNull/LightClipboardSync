@@ -33,6 +33,25 @@ class ClipboardHook : XposedModule() {
                 log(Log.ERROR, TAG, "Clipboard commit method not found ($phase)")
                 return
             }
+            ClipboardHookTargets.accessMethods(serviceClass).forEach { method ->
+                handles += hook(method)
+                    .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+                    .intercept { chain ->
+                        val packageName = chain.args.filterIsInstance<String>().firstOrNull()
+                        val hasWriteOperation = chain.args.filterIsInstance<Int>()
+                            .any { it == WRITE_CLIPBOARD_OP }
+                        if (packageName == ModuleProtocol.PACKAGE_NAME && hasWriteOperation) {
+                            // ColorOS marks WRITE_CLIPBOARD as foreground-only.
+                            // This hook is scoped to our own package and only
+                            // affects the authorization check; the app still
+                            // owns the events connection and write operation.
+                            true
+                        } else {
+                            chain.proceed()
+                        }
+                    }
+                log(Log.INFO, TAG, "Installed clipboard access hook: $method ($phase)")
+            }
             val grantItem = ClipboardHookTargets.grantMethod(serviceClass)?.apply { isAccessible = true }
             deoptimizeCallers(serviceClass, classLoader)
             serviceClass.declaredConstructors.forEach { constructor ->
@@ -72,13 +91,8 @@ class ClipboardHook : XposedModule() {
         runtime?.let { return it }
         try {
             val context = service.javaClass.getMethod("getContext").invoke(service) as Context
-            val write = service.javaClass.getDeclaredMethod("setPrimaryClipInternal",
-                ClipData::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }
-            val lockField = service.javaClass.declaredFields.firstOrNull { it.name == "mLock" }
-                ?: service.javaClass.declaredFields.first { it.name == "mClipboards" }
-            val lock = lockField.apply { isAccessible = true }.get(service) ?: return null
-            runtime = ModuleClipboardRuntime(this, context, service, write, lock)
-            log(Log.INFO, TAG, "System clipboard network runtime initialized")
+            runtime = ModuleClipboardRuntime(this, context, service)
+            log(Log.INFO, TAG, "System clipboard upload runtime initialized")
             return runtime
         } catch (error: Throwable) {
             log(Log.ERROR, TAG, "Clipboard runtime initialization failed", error)
@@ -102,5 +116,6 @@ class ClipboardHook : XposedModule() {
 
     companion object {
         private const val TAG = "LightClipboardSync"
+        private const val WRITE_CLIPBOARD_OP = 30
     }
 }

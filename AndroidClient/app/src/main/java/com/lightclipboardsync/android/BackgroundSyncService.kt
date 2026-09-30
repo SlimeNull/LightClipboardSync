@@ -57,4 +57,14 @@ class BackgroundSyncService : Service() {
         ClipboardEventSession.setPersistent(this, false)
         super.onDestroy()
     }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Keep the sync service independent from the launcher task. Some
+        // vendors stop the process after a task swipe, so ask the system to
+        // recreate the foreground service as well.
+        runCatching {
+            startForegroundService(Intent(this, BackgroundSyncService::class.java))
+        }
+    }
 }

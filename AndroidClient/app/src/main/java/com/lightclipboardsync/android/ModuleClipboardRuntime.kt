@@ -1,5 +1,6 @@
 package com.lightclipboardsync.android
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.Context
@@ -8,24 +9,27 @@ import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.os.Binder
 import android.os.Build
-import android.os.PowerManager
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
-import android.annotation.SuppressLint
 import java.lang.reflect.Method
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
-@SuppressLint("UnspecifiedRegisterReceiverFlag")
+/**
+ * System-server side module runtime.
+ *
+ * The application owns events, recovery, and remote clipboard writes. This
+ * runtime only observes clipboard commits made by other applications and
+ * uploads their contents, keeping the optional module independent from the
+ * basic client session.
+ */
+@SuppressLint("PrivateApi")
 class ModuleClipboardRuntime(
     private val module: ClipboardHook,
     private val context: Context,
     private val service: Any,
-    private val writeMethod: Method,
-    private val clipboardLock: Any,
 ) {
-    private val settingsWorker = Executors.newSingleThreadScheduledExecutor()
+    private val settingsWorker = Executors.newSingleThreadExecutor()
     private val uploadWorker = Executors.newSingleThreadExecutor()
     private val logGate = Any()
     private val lines = mutableListOf<String>()
@@ -37,72 +41,43 @@ class ModuleClipboardRuntime(
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         settingsWorker.execute { refreshConfiguration() }
     }
-    private val client = ClipboardEventClient(
-        config = { currentConfig },
-        write = ::writeRemote,
-        onStatus = { state = it; publishSnapshot() },
-        onLog = ::addLog,
-        initiallyInteractive = context.getSystemService(PowerManager::class.java).isInteractive
-    )
 
     init {
-        val screens = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                val on = intent.action == Intent.ACTION_SCREEN_ON
-                val time = System.currentTimeMillis()
-                settingsWorker.execute {
-                    client.screenChanged(on, time)
-                    if (on) refreshConfiguration()
-                }
-            }
-        }
         val control = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 observing = intent.getBooleanExtra("observing", false)
-                val reconnect = intent.getBooleanExtra("reconnect", false)
-                settingsWorker.execute { refreshConfiguration(reconnect); publishSnapshot() }
+                settingsWorker.execute { refreshConfiguration() }
             }
         }
-        val screenFilter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        }
         if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(screens, screenFilter, Context.RECEIVER_NOT_EXPORTED)
             context.registerReceiver(control, IntentFilter(ModuleProtocol.CONTROL),
                 ModuleProtocol.PERMISSION, null, Context.RECEIVER_EXPORTED)
         } else {
-            context.registerReceiver(screens, screenFilter)
-            context.registerReceiver(control, IntentFilter(ModuleProtocol.CONTROL), ModuleProtocol.PERMISSION, null)
+            context.registerReceiver(control, IntentFilter(ModuleProtocol.CONTROL),
+                ModuleProtocol.PERMISSION, null)
         }
         settingsWorker.execute { refreshConfiguration() }
     }
 
-    private fun refreshConfiguration(forceReconnect: Boolean = false) {
+    private fun refreshConfiguration() {
         try {
             val prefs = preferences ?: module.getRemotePreferences(ModuleProtocol.REMOTE_PREFS).also {
                 it.registerOnSharedPreferenceChangeListener(preferenceListener)
                 preferences = it
             }
             val updated = SyncConfig.fromRemote(prefs)
-            val changed = updated != currentConfig
             currentConfig = updated
-            if (changed || forceReconnect) client.reconnect(configurationChanged = changed)
-            client.setEnabled(updated != null)
-            if (updated == null) { state = ConnectionState.NOT_CONFIGURED; publishSnapshot() }
+            state = if (updated == null) ConnectionState.NOT_CONFIGURED else ConnectionState.CONNECTED
+            publishSnapshot()
         } catch (error: Throwable) {
             module.log(Log.ERROR, TAG, "Module settings unavailable", error)
             state = ConnectionState.CONNECTING
             publishSnapshot()
-            if (context.getSystemService(PowerManager::class.java).isInteractive) {
-                settingsWorker.schedule({ refreshConfiguration() }, 5, TimeUnit.SECONDS)
-            }
         }
     }
 
     fun copied(clip: ClipData, sourceUid: Int, grantItem: Method?) {
         if (sourceUid == appUid || clip.description.extras?.getBoolean(ModuleProtocol.REMOTE_CLIP) == true) return
-        client.noteLocalCopy()
         val identity = Binder.clearCallingIdentity()
         try {
             val targetUser = UserHandle::class.java.getDeclaredMethod("getUserId", Int::class.javaPrimitiveType)
@@ -124,7 +99,7 @@ class ModuleClipboardRuntime(
                         ?: throw IllegalStateException("Unsupported clipboard type")
                     type = content.type
                     addLog("自动发送", type)
-                    client.noteUploaded(ClipboardApi(config).push(content))
+                    ClipboardApi(config).push(content)
                     module.log(Log.INFO, TAG, "Direct clipboard upload succeeded ($type)")
                 } catch (error: Exception) {
                     addLog("自动发送失败", type)
@@ -133,17 +108,6 @@ class ModuleClipboardRuntime(
             }
         } finally {
             Binder.restoreCallingIdentity(identity)
-        }
-    }
-
-    private fun writeRemote(record: ClipboardApi.Download, isCurrent: () -> Boolean): Boolean {
-        val clip = RemoteClipboardWriter.prepare(context, record)
-        return synchronized(clipboardLock) {
-            if (!isCurrent()) false
-            else {
-                writeMethod.invoke(service, clip, appUid)
-                true
-            }
         }
     }
 

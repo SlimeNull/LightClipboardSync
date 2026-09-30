@@ -4,4 +4,9 @@
     <string name="sync_clipboard">同步剪贴板</string>
     <string name="notification_channel">剪贴板同步</string>
     <string name="notification_text">事件同步已开启</string>
+    <string name="background_clipboard">后台读取剪贴板</string>
+    <string name="background_clipboard_granted">已允许悬浮窗读取</string>
+    <string name="background_clipboard_missing">需要悬浮窗权限</string>
+    <string name="battery_optimization_granted">已忽略电池优化</string>
+    <string name="battery_optimization_missing">可能被系统限制后台网络</string>
 </resources>

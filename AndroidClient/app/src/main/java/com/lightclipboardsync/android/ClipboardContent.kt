@@ -1,7 +1,6 @@
 package com.lightclipboardsync.android
 
 import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -19,8 +18,7 @@ object ClipboardContentReader {
     private const val MAX_BYTES = 25 * 1024 * 1024
 
     fun readCurrent(context: Context): ClipboardContent? {
-        val clipboard = context.getSystemService(ClipboardManager::class.java)
-        return clipboard.primaryClip?.let { read(context, it) }
+        return BackgroundClipboard.readPrimaryClip(context)?.let { read(context, it) }
     }
 
     fun read(context: Context, clip: ClipData): ClipboardContent? {
@@ -77,8 +75,7 @@ object RemoteClipboardWriter {
     fun write(context: Context, record: ClipboardApi.Download, isCurrent: () -> Boolean): Boolean {
         val clip = prepare(context, record)
         if (!isCurrent()) return false
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-        return true
+        return BackgroundClipboard.writePrimaryClip(context, clip)
     }
 
     private fun imageClip(context: Context, record: ClipboardApi.Download): ClipData {

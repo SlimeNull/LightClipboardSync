@@ -248,16 +248,18 @@ class ClipboardEventClient(
     private fun isIdleSuspended(): Boolean = synchronized(gate) { idleSuspended }
 
     private fun recoverLatest(api: ClipboardApi, attempt: Int) {
-        if (!interactive) return
         val before = localVersion.get()
         val latest = try {
             api.pull(-1)
         } catch (error: ClipboardApi.HttpError) {
             if (error.code != 404) {
                 onLog("恢复失败 HTTP ${error.code}", "events")
-                throw error
+                return
             }
             null
+        } catch (_: Exception) {
+            onLog("恢复失败", "events")
+            return
         }
         if (!current(attempt)) return
         if (latest != null) {
@@ -290,9 +292,16 @@ class ClipboardEventClient(
         }
         val fresh = synchronized(gate) { newest == null || position > newest!! }
         if (!fresh || !isCurrent()) return
-        if (write(record, isCurrent)) {
-            synchronized(gate) { if (newest == null || position > newest!!) newest = position }
-            onLog(action, record.type)
+        try {
+            if (write(record, isCurrent)) {
+                synchronized(gate) { if (newest == null || position > newest!!) newest = position }
+                onLog(action, record.type)
+            } else {
+                onLog("${action}失败", record.type)
+            }
+        } catch (error: Throwable) {
+            val detail = if (error is SecurityException) "权限" else "异常"
+            onLog("${action}失败 $detail", record.type)
         }
     }
 
