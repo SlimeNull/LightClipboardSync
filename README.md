@@ -1,6 +1,8 @@
 # LightClipboardSync
 
-轻量的文本与图片剪贴板同步。当前实现包含 ASP.NET Core 服务器、macOS 菜单栏客户端和 Android 客户端。
+轻量的文本与图片剪贴板同步。当前实现包含 ASP.NET Core 服务器、macOS 菜单栏客户端、Android 客户端和 Windows 客户端。
+
+Windows 客户端位于 `WindowsClient/`，由 `LightClipboardSync.Windows.Service`（管理员权限控制台后台服务）和 `LightClipboardSync.Windows`（管理员权限 WPF 配置窗口）组成。后台服务使用 Windows `AddClipboardFormatListener`/`WM_CLIPBOARDUPDATE` 监听剪贴板变化，通过 `/push` 上传，并持续消费 `/events` 将远端文本或图片写回剪贴板；配置窗口只展示服务器地址和同步 UUID，通过命名管道保存配置，关闭窗口不会停止服务。详见 `WindowsClient/README.md`。
 
 ## 启动
 

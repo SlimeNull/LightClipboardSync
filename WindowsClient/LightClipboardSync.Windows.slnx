@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="LightClipboardSync.Windows.Service\LightClipboardSync.Windows.Service.csproj" />
+  <Project Path="LightClipboardSync.Windows\LightClipboardSync.Windows.csproj" />
+</Solution>
