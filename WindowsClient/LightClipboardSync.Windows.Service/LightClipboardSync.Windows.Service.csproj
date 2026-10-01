@@ -8,5 +8,9 @@
     <AssemblyName>LightClipboardSync.Windows.Service</AssemblyName>
     <RootNamespace>LightClipboardSync.Windows.Service</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\assets\LightClipboardSync.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <Content Include="..\assets\LightClipboardSync.ico" Link="LightClipboardSync.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

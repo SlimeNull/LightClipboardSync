@@ -9,6 +9,8 @@ Windows 客户端由两个可执行项目组成：
 
 Service 日志同时输出到控制台，并写入可执行文件旁的 `logs\service.log`，记录连接、断线重连、事件接收、剪贴板写入和上传结果。
 
+Windows 图标复用了 Android 的 `app_icon.png`，生成的多尺寸 ICO 位于 `assets\LightClipboardSync.ico`，包含 16、24、32、48、64、128、256 像素。生成工具 ImageMagick 已安装到 `D:\Tools\ImageMagick\installed`。
+
 配置窗口只显示服务器地址和同步 UUID，状态只有“正在连接”和“已连接”。保存设置会取消旧的 events 连接并立即重连；“完全退出”会同时关闭配置窗口和后台服务。勾选“开机自启动”后，服务程序会写入当前用户的启动项。
 
 构建：

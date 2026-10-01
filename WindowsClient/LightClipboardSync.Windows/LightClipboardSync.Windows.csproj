@@ -8,8 +8,10 @@
     <AssemblyName>LightClipboardSync.Windows</AssemblyName>
     <RootNamespace>LightClipboardSync.Windows</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\assets\LightClipboardSync.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\LightClipboardSync.Windows.Service\LightClipboardSync.Windows.Service.csproj" />
+    <Resource Include="..\assets\LightClipboardSync.ico" Link="Assets\LightClipboardSync.ico" />
   </ItemGroup>
 </Project>
