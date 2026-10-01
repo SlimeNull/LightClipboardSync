@@ -15,6 +15,7 @@ CloudflareWorker/
 ├── package.json
 ├── wrangler.jsonc
 ├── README.md
+├── worker.js                  # Dashboard Web VSC 单文件版本
 └── src/
     ├── common.js
     ├── index.js
@@ -60,6 +61,15 @@ npx wrangler deploy
 ```
 
 不要在已经部署过 `v1` 后反复删除或重命名已有 migration。普通源码修改不需要新增 migration。
+
+## 使用 Dashboard Web VSC
+
+不想安装 Node.js 时，可以直接在 Cloudflare 控制台编辑和部署。请将 [`worker.js`](worker.js) 粘贴到 Web VSC，然后参考 [Cloudflare 部署文档](../docs/cloudflare_worker_deploy.md) 的 Dashboard 章节添加 Durable Object binding：
+
+```text
+Binding variable name: CLIPBOARD_ROOM
+Durable Object class: ClipboardRoom
+```
 
 
 ## 客户端服务器地址
